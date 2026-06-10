@@ -62,4 +62,30 @@ using Statistics
               sort(traits(w1)) != sort(traits(w2))
         @test sum(trait_histogram(w1, dom)) == population_size(w1)
     end
+
+    @testset "continuous-time IBM: birth-death mean = N0·exp((b-d)t)" begin
+        cdom = SPC.ContinuousDomain(0.0, 10.0, 50)
+        b, d = 0.6, 0.4
+        w = ibm_world_ct(x -> 0.0, x -> d, x -> b, rng -> 2.0, cdom;
+            rng=Random.Xoshiro(11), traits0=fill(2.0, 10000))
+        res = ibm_run_ct!(w, (0.0, 2.0); dt=0.005, saveat=0.5)
+        for (t, N) in zip(res.t, res.N)
+            @test isapprox(N, 10000 * exp((b - d) * t); rtol=0.06)
+        end
+    end
+
+    @testset "continuous-time IBM: advection + death (vs characteristics)" begin
+        cdom = SPC.ContinuousDomain(0.0, 50.0, 100)
+        v, d = 1.0, 0.2
+        w = ibm_world_ct(x -> v, x -> d, x -> 0.0, rng -> 0.0, cdom;
+            rng=Random.Xoshiro(22), traits0=fill(5.0, 10000))
+        res = ibm_run_ct!(w, (0.0, 3.0); dt=0.01, saveat=1.0, save_traits=true)
+        for (t, N) in zip(res.t, res.N)
+            @test isapprox(N, 10000 * exp(-d * t); rtol=0.05)   # death-only decay
+        end
+        for (k, t) in enumerate(res.t)
+            @test isapprox(mean(res.traits[k]), 5.0 + v * t; atol=0.05)  # advection
+        end
+        @test all(x -> 0.0 <= x <= 50.0, res.traits[end])
+    end
 end
