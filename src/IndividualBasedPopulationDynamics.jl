@@ -24,6 +24,7 @@ export population_size, traits, trait_histogram
 export CTVitalRates, ibm_world_ct, ibm_step_ct!, ibm_run_ct!
 export Weight, ibm_world_super, ibm_step_super!, ibm_run_super!
 export total_count, n_particles, merge_by_bin!
+export Stage, StageVitalRates, ibm_world_stage, ibm_step_stage!, ibm_run_stage!, stage_counts
 
 # ---------------------------------------------------------------------------
 # Components & resources
@@ -502,6 +503,150 @@ function ibm_run_super!(world, n_steps::Int; merge_domain = nothing)
         push!(particles, n_particles(world))
     end
     return (N = N, particles = particles)
+end
+
+# ---------------------------------------------------------------------------
+# Stage-structured (pure-jump finite-state) continuous-time IBM
+# ---------------------------------------------------------------------------
+
+"""Discrete stage of an individual (the individual-based analogue of a finite
+state). Multi-component individuals combine `Stage` with `Size`/`Age`."""
+struct Stage
+    s::Int
+end
+
+"""Per-stage continuous-time rates: `Qtrans[s', s]` = rate of an `s`-individual
+transitioning to `s'` (off-diagonal movement), `death[s]` mortality rate,
+`birth[s]` per-capita birth rate, `offspring_stage` (an `Int` or `s -> Int`) the
+stage offspring enter. (Non-parametric for Ark resource keying.)"""
+struct StageVitalRates
+    Qtrans::Any
+    death::Any
+    birth::Any
+    offspring_stage::Any
+end
+
+"""
+    ibm_world_stage(Qtrans, death, birth, offspring_stage; rng, stages0)
+
+Build an Ark `World` of `Stage` individuals for a stage-structured continuous-time
+IBM — a pure-jump Markov process whose mean is the finite-state generator
+`dn/dt = G·n` (with `G` assembled from the transition/death/birth rates). One
+entity is spawned per entry of `stages0`.
+"""
+function ibm_world_stage(Qtrans, death, birth, offspring_stage;
+        rng::Random.AbstractRNG = Random.default_rng(),
+        stages0::AbstractVector{<:Integer} = Int[])
+    world = Ark.World(Stage)
+    Ark.add_resource!(world, RNGResource(rng))
+    Ark.add_resource!(world, StageVitalRates(Qtrans, death, birth, offspring_stage))
+    for s in stages0
+        Ark.new_entity!(world, (Stage(Int(s)),))
+    end
+    return world
+end
+
+_offspring_stage(spec::Integer, s) = Int(spec)
+_offspring_stage(spec, s) = Int(spec(s))
+
+"""
+    ibm_step_stage!(world, dt)
+
+One operator-split step: each individual in stage `s` produces
+`Poisson(birth[s]·dt)` offspring, and with probability `1 - exp(-R·dt)`
+(`R` = total transition + death rate) undergoes one event — death, or a transition
+to `s'` with probability `Qtrans[s', s] / R` (an in-place stage change).
+"""
+function ibm_step_stage!(world, dt)
+    vr = Ark.get_resource(world, StageVitalRates)
+    rng = Ark.get_resource(world, RNGResource).rng
+    n = size(vr.Qtrans, 1)
+    return _ibm_step_stage!(world, float(dt), rng, vr.Qtrans, vr.death, vr.birth,
+        vr.offspring_stage, n)
+end
+
+function _ibm_step_stage!(world, dt, rng, Qtrans, death, birth, offspring_stage, n::Int)
+    dead = Ark.Entity[]
+    offspring = Int[]
+    for q in Ark.Query(world, (Stage,))
+        eids, stages = q
+        for i in eachindex(eids)
+            s = stages[i].s
+            for _ in 1:rand_poisson(rng, birth[s] * dt)
+                push!(offspring, _offspring_stage(offspring_stage, s))
+            end
+            rate_out = 0.0
+            @inbounds for sp in 1:n
+                sp != s && (rate_out += Qtrans[sp, s])
+            end
+            R = rate_out + death[s]
+            if R > 0 && rand(rng) < -expm1(-R * dt)
+                u = rand(rng) * R
+                if u < death[s]
+                    push!(dead, eids[i])
+                else
+                    u -= death[s]
+                    cum = 0.0
+                    target = s
+                    @inbounds for sp in 1:n
+                        sp == s && continue
+                        cum += Qtrans[sp, s]
+                        if u <= cum
+                            target = sp
+                            break
+                        end
+                    end
+                    stages[i] = Stage(target)
+                end
+            end
+        end
+    end
+    for e in dead
+        Ark.is_alive(world, e) && Ark.remove_entity!(world, e)
+    end
+    for sg in offspring
+        Ark.new_entity!(world, (Stage(sg),))
+    end
+    return world
+end
+
+"""
+    stage_counts(world, n_stages) -> Vector{Int}
+
+Number of individuals in each stage `1:n_stages`.
+"""
+function stage_counts(world, n_stages::Int)
+    c = zeros(Int, n_stages)
+    for q in Ark.Query(world, (Stage,))
+        _, stages = q
+        for i in eachindex(stages)
+            c[stages[i].s] += 1
+        end
+    end
+    return c
+end
+
+"""
+    ibm_run_stage!(world, tspan; dt, saveat=dt, n_stages) -> (; t, counts)
+
+Run the stage-structured IBM over `tspan` with step `dt`, recording the per-stage
+counts every `saveat`.
+"""
+function ibm_run_stage!(world, tspan; dt::Real, saveat::Real = dt, n_stages::Int)
+    t0 = float(tspan[1])
+    tf = float(tspan[2])
+    nsteps = round(Int, (tf - t0) / dt)
+    stride = max(1, round(Int, saveat / dt))
+    ts = Float64[t0]
+    counts = Vector{Int}[stage_counts(world, n_stages)]
+    for k in 1:nsteps
+        ibm_step_stage!(world, dt)
+        if k % stride == 0 || k == nsteps
+            push!(ts, t0 + k * dt)
+            push!(counts, stage_counts(world, n_stages))
+        end
+    end
+    return (t = ts, counts = counts)
 end
 
 end # module

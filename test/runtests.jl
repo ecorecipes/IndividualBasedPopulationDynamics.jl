@@ -4,6 +4,7 @@ using IntegralProjectionModels          # vital-rate types, samplers, IPMProblem
 import StructuredPopulationCore as SPC
 using Random
 using Statistics
+using LinearAlgebra
 
 @testset "IndividualBasedPopulationDynamics" begin
     # Vital rates with z-independent survival/fecundity (so the deterministic total
@@ -119,5 +120,26 @@ using Statistics
         end
         @test isapprox(mean(totals), N * (sconst + fconst); rtol=0.01)
         @test isapprox(var(totals), N * (sconst * (1 - sconst) + fconst); rtol=0.2)
+    end
+
+    @testset "stage-structured pure-jump IBM: mean = exp(Gt)·n0" begin
+        # 3 stages: juvenile -> sub-adult -> adult; adults reproduce juveniles
+        Qtrans = [0.0 0.0 0.0;            # Qtrans[s', s] = rate s -> s'
+                  0.5 0.0 0.0;            # 1 -> 2 at 0.5
+                  0.0 0.4 0.0]            # 2 -> 3 at 0.4
+        death = [0.1, 0.1, 0.2]
+        birth = [0.0, 0.0, 0.6]
+        offspring_stage = 1
+        G = [-0.6 0.0 0.6;               # assembled finite-state generator
+              0.5 -0.5 0.0;
+              0.0 0.4 -0.2]
+        n0 = [10000, 6000, 4000]
+        stages0 = vcat(fill(1, n0[1]), fill(2, n0[2]), fill(3, n0[3]))
+        w = ibm_world_stage(Qtrans, death, birth, offspring_stage;
+            rng=Random.Xoshiro(40), stages0=stages0)
+        res = ibm_run_stage!(w, (0.0, 2.0); dt=0.01, saveat=0.5, n_stages=3)
+        for (t, c) in zip(res.t, res.counts)
+            @test isapprox(Float64.(c), exp(G .* t) * Float64.(n0); rtol=0.05)
+        end
     end
 end
