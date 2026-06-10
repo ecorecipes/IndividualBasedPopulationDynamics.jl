@@ -128,14 +128,13 @@ using LinearAlgebra
                   0.5 0.0 0.0;            # 1 -> 2 at 0.5
                   0.0 0.4 0.0]            # 2 -> 3 at 0.4
         death = [0.1, 0.1, 0.2]
-        birth = [0.0, 0.0, 0.6]
-        offspring_stage = 1
+        birth = zeros(3, 3); birth[1, 3] = 0.6   # stage-3 adults -> stage-1 offspring
         G = [-0.6 0.0 0.6;               # assembled finite-state generator
               0.5 -0.5 0.0;
               0.0 0.4 -0.2]
         n0 = [10000, 6000, 4000]
         stages0 = vcat(fill(1, n0[1]), fill(2, n0[2]), fill(3, n0[3]))
-        w = ibm_world_stage(Qtrans, death, birth, offspring_stage;
+        w = ibm_world_stage(Qtrans, death, birth;
             rng=Random.Xoshiro(40), stages0=stages0)
         res = ibm_run_stage!(w, (0.0, 2.0); dt=0.01, saveat=0.5, n_stages=3)
         for (t, c) in zip(res.t, res.counts)

@@ -516,64 +516,66 @@ struct Stage
 end
 
 """Per-stage continuous-time rates: `Qtrans[s', s]` = rate of an `s`-individual
-transitioning to `s'` (off-diagonal movement), `death[s]` mortality rate,
-`birth[s]` per-capita birth rate, `offspring_stage` (an `Int` or `s -> Int`) the
-stage offspring enter. (Non-parametric for Ark resource keying.)"""
+transitioning to `s'` (off-diagonal movement), `death[s]` mortality rate, and
+birth matrix `birth[s', s]` = rate an `s`-individual produces an offspring in
+stage `s'`. (Non-parametric for Ark resource keying.)"""
 struct StageVitalRates
     Qtrans::Any
     death::Any
     birth::Any
-    offspring_stage::Any
 end
 
 """
-    ibm_world_stage(Qtrans, death, birth, offspring_stage; rng, stages0)
+    ibm_world_stage(Qtrans, death, birth; rng, stages0)
 
 Build an Ark `World` of `Stage` individuals for a stage-structured continuous-time
 IBM — a pure-jump Markov process whose mean is the finite-state generator
-`dn/dt = G·n` (with `G` assembled from the transition/death/birth rates). One
-entity is spawned per entry of `stages0`.
+`dn/dt = G·n` (with `G` assembled from the transition/death/birth rates; `birth`
+is the offspring matrix `birth[to, from]`). One entity is spawned per entry of
+`stages0`.
 """
-function ibm_world_stage(Qtrans, death, birth, offspring_stage;
+function ibm_world_stage(Qtrans, death, birth;
         rng::Random.AbstractRNG = Random.default_rng(),
         stages0::AbstractVector{<:Integer} = Int[])
     world = Ark.World(Stage)
     Ark.add_resource!(world, RNGResource(rng))
-    Ark.add_resource!(world, StageVitalRates(Qtrans, death, birth, offspring_stage))
+    Ark.add_resource!(world, StageVitalRates(Qtrans, death, birth))
     for s in stages0
         Ark.new_entity!(world, (Stage(Int(s)),))
     end
     return world
 end
 
-_offspring_stage(spec::Integer, s) = Int(spec)
-_offspring_stage(spec, s) = Int(spec(s))
-
 """
     ibm_step_stage!(world, dt)
 
 One operator-split step: each individual in stage `s` produces
-`Poisson(birth[s]·dt)` offspring, and with probability `1 - exp(-R·dt)`
-(`R` = total transition + death rate) undergoes one event — death, or a transition
-to `s'` with probability `Qtrans[s', s] / R` (an in-place stage change).
+`Poisson(birth[to, s]·dt)` offspring in each stage `to`, and with probability
+`1 - exp(-R·dt)` (`R` = total transition + death rate) undergoes one event —
+death, or a transition to `s'` with probability `Qtrans[s', s] / R` (an in-place
+stage change).
 """
 function ibm_step_stage!(world, dt)
     vr = Ark.get_resource(world, StageVitalRates)
     rng = Ark.get_resource(world, RNGResource).rng
     n = size(vr.Qtrans, 1)
-    return _ibm_step_stage!(world, float(dt), rng, vr.Qtrans, vr.death, vr.birth,
-        vr.offspring_stage, n)
+    return _ibm_step_stage!(world, float(dt), rng, vr.Qtrans, vr.death, vr.birth, n)
 end
 
-function _ibm_step_stage!(world, dt, rng, Qtrans, death, birth, offspring_stage, n::Int)
+function _ibm_step_stage!(world, dt, rng, Qtrans, death, birth, n::Int)
     dead = Ark.Entity[]
     offspring = Int[]
     for q in Ark.Query(world, (Stage,))
         eids, stages = q
         for i in eachindex(eids)
             s = stages[i].s
-            for _ in 1:rand_poisson(rng, birth[s] * dt)
-                push!(offspring, _offspring_stage(offspring_stage, s))
+            @inbounds for to in 1:n
+                r = birth[to, s]
+                if r > 0
+                    for _ in 1:rand_poisson(rng, r * dt)
+                        push!(offspring, to)
+                    end
+                end
             end
             rate_out = 0.0
             @inbounds for sp in 1:n
