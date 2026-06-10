@@ -1,0 +1,14 @@
+[deps]
+Ark = "56664e29-41e4-4ea5-ab0e-825499acc647"
+IndividualBasedPopulationDynamics = "44fa53de-a3b8-4fb2-957a-7c8ba15902ba"
+IntegralProjectionModels = "00376763-44f4-49c9-a075-cdcba60854bb"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StructuredPopulationCore = "33358fd2-7d60-4541-bded-caea801370e0"
+
+[sources]
+Ark = {url = "https://github.com/ark-ecs/Ark.jl"}
+IndividualBasedPopulationDynamics = {path = ".."}
+IntegralProjectionModels = {path = "../../IntegralProjectionModels.jl"}
+StructuredPopulationCore = {path = "../../StructuredPopulationCore.jl"}
