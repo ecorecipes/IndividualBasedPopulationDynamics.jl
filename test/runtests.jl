@@ -88,4 +88,36 @@ using Statistics
         end
         @test all(x -> 0.0 <= x <= 50.0, res.traits[end])
     end
+
+    @testset "super-individuals: mean tracks deterministic IPM, few particles" begin
+        # seed super population from the same binned density n0 (one particle/bin)
+        traits_s = Float64[]; weights_s = Int[]
+        for b in 1:nbins
+            n0[b] > 0 && (push!(traits_s, z[b]); push!(weights_s, Int(n0[b])))
+        end
+        ws = ibm_world_super(s, g, f, dom; rng=Random.Xoshiro(31),
+            traits0=traits_s, weights0=weights_s)
+        @test total_count(ws) == N0                  # 20000 individuals...
+        @test n_particles(ws) <= nbins               # ...in ≤ 60 particles
+        res = ibm_run_super!(ws, 2; merge_domain=dom)
+        @test isapprox(res.N[2], det_total[2]; rtol=0.03)
+        @test isapprox(res.N[3], det_total[3]; rtol=0.04)
+        @test all(p -> p <= nbins, res.particles)    # particle count stays capped
+        @test total_count(ws) == res.N[end]
+    end
+
+    @testset "super-individuals reproduce the exact aggregate count distribution" begin
+        K = 200; wt = 50; N = K * wt                  # 10000 individuals, 200 particles
+        sconst = s(0.0)                              # z-independent here
+        fconst = exp(-1.0)                           # expected offspring, z-independent
+        totals = Int[]
+        for r in 1:400
+            wld = ibm_world_super(s, g, f, dom; rng=Random.Xoshiro(1000 + r),
+                traits0=fill(2.0, K), weights0=fill(wt, K))
+            ibm_step_super!(wld)
+            push!(totals, total_count(wld))
+        end
+        @test isapprox(mean(totals), N * (sconst + fconst); rtol=0.01)
+        @test isapprox(var(totals), N * (sconst * (1 - sconst) + fconst); rtol=0.2)
+    end
 end
