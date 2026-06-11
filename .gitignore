@@ -1,6 +1,6 @@
-vignettes/Manifest.toml
+Manifest.toml
+docs/build/
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
-/docs/build/
 .DS_Store
