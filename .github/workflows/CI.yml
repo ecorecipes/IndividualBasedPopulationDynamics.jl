@@ -33,7 +33,7 @@ jobs:
       - name: Checkout StructuredPopulationCore.jl
         uses: actions/checkout@v4
         with:
-          repository: ecorecipes/StructuredPopulationCore.jl
+          repository: ecorecipes/ProjectionModels.jl   # repo still named ProjectionModels.jl
           path: StructuredPopulationCore.jl
       - name: Checkout IntegralProjectionModels.jl
         uses: actions/checkout@v4
@@ -67,7 +67,7 @@ jobs:
       - name: Checkout StructuredPopulationCore.jl
         uses: actions/checkout@v4
         with:
-          repository: ecorecipes/StructuredPopulationCore.jl
+          repository: ecorecipes/ProjectionModels.jl   # repo still named ProjectionModels.jl
           path: StructuredPopulationCore.jl
       - name: Checkout IntegralProjectionModels.jl
         uses: actions/checkout@v4
