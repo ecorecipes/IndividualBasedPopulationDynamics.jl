@@ -10,7 +10,7 @@ StructuredPopulationCore = "33358fd2-7d60-4541-bded-caea801370e0"
 
 [sources]
 Ark = {url = "https://github.com/ark-ecs/Ark.jl"}
-StructuredPopulationCore = {path = "../StructuredPopulationCore.jl"}
+StructuredPopulationCore = {path = "../ProjectionModels.jl"}
 IntegralProjectionModels = {path = "../IntegralProjectionModels.jl"}
 
 [compat]

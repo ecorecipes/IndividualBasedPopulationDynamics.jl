@@ -384,10 +384,11 @@ end
 """
     ibm_step_super!(world)
 
-One discrete step for weighted super-individuals. A particle `(z, w)` produces
-`Poisson(w · expected_offspring(z))` recruits (one new particle) and keeps
-`Binomial(w, survival(z))` survivors (which grow to one sampled trait). The
-total-count distribution matches the unweighted IBM (`E[total] = (P+F)·n`).
+One discrete step for weighted super-individuals. A particle `(z, w)` draws its
+aggregate offspring/survivor counts with `Poisson(w · expected_offspring(z))`
+and `Binomial(w, survival(z))`, but each represented individual then gets an
+independent recruit/growth trait draw. This preserves the super-individual
+count-process statistics while restoring within-particle trait variance.
 """
 function ibm_step_super!(world)
     vr = Ark.get_resource(world, VitalRates)
@@ -399,36 +400,43 @@ end
 
 function _ibm_step_super!(world, rng, survival, growth, fecundity, domain, mode::Symbol)
     dead = Ark.Entity[]
-    offspring = Tuple{Float64, Int}[]
+    offspring = Float64[]
+    survivors = Float64[]
     for q in Ark.Query(world, (Size, Weight))
         eids, sizes, weights = q
         for i in eachindex(eids)
             z = sizes[i].z
             w = weights[i].w
             k = rand_poisson(rng, w * expected_offspring(fecundity, z, domain))
-            if k > 0
+            for _ in 1:k
                 zr = _evict(sample_recruit(rng, fecundity, z, domain), domain, mode)
-                isnan(zr) || push!(offspring, (zr, k))
+                isnan(zr) || push!(offspring, zr)
             end
             b = rand_binomial(rng, w, clamp(survival(z), 0.0, 1.0))
-            if b == 0
-                push!(dead, eids[i])
-            else
+            alive = 0
+            for _ in 1:b
                 zg = _evict(sample_growth(rng, growth, z, domain), domain, mode)
-                if isnan(zg)
-                    push!(dead, eids[i])
-                else
-                    sizes[i] = Size(zg)
-                    weights[i] = Weight(b)
+                if !isnan(zg)
+                    alive += 1
+                    if alive == 1
+                        sizes[i] = Size(zg)
+                        weights[i] = Weight(1)
+                    else
+                        push!(survivors, zg)
+                    end
                 end
             end
+            alive == 0 && push!(dead, eids[i])
         end
     end
     for e in dead
         Ark.is_alive(world, e) && Ark.remove_entity!(world, e)
     end
-    for (z, w) in offspring
-        Ark.new_entity!(world, (Size(z), Weight(w)))
+    for z in survivors
+        Ark.new_entity!(world, (Size(z), Weight(1)))
+    end
+    for z in offspring
+        Ark.new_entity!(world, (Size(z), Weight(1)))
     end
     return world
 end

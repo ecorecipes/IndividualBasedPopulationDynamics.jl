@@ -122,6 +122,22 @@ using LinearAlgebra
         @test isapprox(var(totals), N * (sconst * (1 - sconst) + fconst); rtol=0.2)
     end
 
+    @testset "super-individuals preserve within-particle trait stochasticity" begin
+        dom_small = SPC.ContinuousDomain(-10.0, 10.0, 40)
+        survival_all = LinearSurvival(20.0, 0.0)
+        offspring_none = FecundityRate(-50.0, 0.0, 0.0, 1.0, 1.0)
+        growth_random = NormalGrowth(0.0, 0.0, 1.0)
+        wld = ibm_world_super(survival_all, growth_random, offspring_none, dom_small;
+            rng=Random.Xoshiro(20240701), traits0=[0.0], weights0=[25], eviction=:reflect)
+        ibm_step_super!(wld)
+        ts = sort(traits(wld))
+        @test total_count(wld) == 25
+        @test n_particles(wld) == 25
+        @test var(ts) > 0.05
+        @test length(unique(ts)) > 1
+        @test abs(mean(ts)) < 0.5
+    end
+
     @testset "stage-structured pure-jump IBM: mean = exp(Gt)·n0" begin
         # 3 stages: juvenile -> sub-adult -> adult; adults reproduce juveniles
         Qtrans = [0.0 0.0 0.0;            # Qtrans[s', s] = rate s -> s'
