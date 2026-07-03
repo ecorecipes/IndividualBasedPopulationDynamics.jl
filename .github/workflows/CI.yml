@@ -30,11 +30,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: IndividualBasedPopulationDynamics.jl
-      - name: Checkout StructuredPopulationCore.jl
+      - name: Checkout ProjectionModels.jl
         uses: actions/checkout@v4
         with:
-          repository: ecorecipes/ProjectionModels.jl   # repo still named ProjectionModels.jl
-          path: StructuredPopulationCore.jl
+          repository: ecorecipes/ProjectionModels.jl
+          path: ProjectionModels.jl
       - name: Checkout IntegralProjectionModels.jl
         uses: actions/checkout@v4
         with:
@@ -64,11 +64,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: IndividualBasedPopulationDynamics.jl
-      - name: Checkout StructuredPopulationCore.jl
+      - name: Checkout ProjectionModels.jl
         uses: actions/checkout@v4
         with:
-          repository: ecorecipes/ProjectionModels.jl   # repo still named ProjectionModels.jl
-          path: StructuredPopulationCore.jl
+          repository: ecorecipes/ProjectionModels.jl
+          path: ProjectionModels.jl
       - name: Checkout IntegralProjectionModels.jl
         uses: actions/checkout@v4
         with:
@@ -85,7 +85,7 @@ jobs:
           julia --project=IndividualBasedPopulationDynamics.jl/docs -e '
             using Pkg
             Pkg.develop([
-              PackageSpec(path="StructuredPopulationCore.jl"),
+              PackageSpec(path="ProjectionModels.jl"),
               PackageSpec(path="IntegralProjectionModels.jl"),
               PackageSpec(path="IndividualBasedPopulationDynamics.jl"),
             ])
