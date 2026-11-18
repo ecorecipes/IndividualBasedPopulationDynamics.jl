@@ -5,6 +5,9 @@ import StructuredPopulationCore as SPC
 using Random
 using Statistics
 using LinearAlgebra
+import SciMLBase
+import DynamicalResilience
+import ResilienceCore
 
 @testset "IndividualBasedPopulationDynamics" begin
     # Vital rates with z-independent survival/fecundity (so the deterministic total
@@ -157,4 +160,6 @@ using LinearAlgebra
             @test isapprox(Float64.(c), exp(G .* t) * Float64.(n0); rtol=0.05)
         end
     end
+
+    include("test_integrator.jl")
 end

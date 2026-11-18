@@ -15,6 +15,10 @@ module IndividualBasedPopulationDynamics
 
 import Ark
 import Random
+import SciMLBase
+import CommonSolve
+using CommonSolve: init, step!, solve, solve!
+using SciMLBase: remake, reinit!, set_u!, terminate!
 using StructuredPopulationCore: sample_survives, sample_growth,
     offspring_count, expected_offspring, sample_recruit, rand_poisson, rand_binomial
 
@@ -25,6 +29,8 @@ export CTVitalRates, ibm_world_ct, ibm_step_ct!, ibm_run_ct!
 export Weight, ibm_world_super, ibm_step_super!, ibm_run_super!
 export total_count, n_particles, merge_by_bin!
 export Stage, StageVitalRates, ibm_world_stage, ibm_step_stage!, ibm_run_stage!, stage_counts
+export IBMProblem, IBMStepping, IBMIntegrator, IBMSolution, seed_trajectory
+export init, step!, solve, solve!, remake, reinit!, set_u!, terminate!
 
 # ---------------------------------------------------------------------------
 # Components & resources
@@ -658,5 +664,7 @@ function ibm_run_stage!(world, tspan; dt::Real, saveat::Real = dt, n_stages::Int
     end
     return (t = ts, counts = counts)
 end
+
+include("integrator.jl")
 
 end # module
