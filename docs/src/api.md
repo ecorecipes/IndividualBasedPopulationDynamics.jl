@@ -52,3 +52,28 @@ VitalRates
 DomainResource
 EvictionPolicy
 ```
+
+## SciML problem and integrator
+
+An individual-based model as a SciML problem, so that `solve`, ensembles and
+simulation-based resilience metrics (`recovery`, `basin_stability` and the
+early-warning indicators of DynamicalResilience.jl) apply to it. The state is the
+population binned on the mesh (or counted by stage).
+
+```@docs
+IBMProblem
+IBMStepping
+IBMIntegrator
+IBMSolution
+seed_trajectory
+init(::IBMProblem)
+solve(::IBMProblem)
+remake(::IBMProblem)
+reinit!(::IBMIntegrator)
+set_u!(::IBMIntegrator, ::Any)
+IndividualBasedPopulationDynamics.SciMLBase.u_modified!(::IBMIntegrator, ::Bool)
+terminate!(::IBMIntegrator)
+IndividualBasedPopulationDynamics.SciMLBase.check_error(::IBMIntegrator)
+IndividualBasedPopulationDynamics.SciMLBase.successful_retcode(::IBMSolution)
+IndividualBasedPopulationDynamics.SciMLBase.EnsembleProblem(::IBMProblem)
+```

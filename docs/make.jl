@@ -19,6 +19,7 @@ makedocs(;
             "Introduction" => "tutorials/01_introduction.md",
             "Continuous-time dynamics" => "tutorials/02_continuous_time.md",
             "Super-individuals & stages" => "tutorials/03_super_and_stage.md",
+            "Resilience after a pulse" => "tutorials/04_resilience.md",
         ],
         "API Reference" => "api.md",
     ],
